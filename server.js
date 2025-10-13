@@ -29,6 +29,26 @@ app.get('/jobs', (req, res) => {
   });
 });
 
+// NEW ENDPOINT: Remove a job ID when used
+app.post('/remove', (req, res) => {
+  const { jobId } = req.body;
+  
+  if (!jobId) {
+    return res.status(400).json({ error: 'No job ID provided' });
+  }
+  
+  const index = jobIdsList.indexOf(jobId);
+  if (index > -1) {
+    jobIdsList.splice(index, 1);
+    console.log(`Removed job ID: ${jobId}. Remaining: ${jobIdsList.length}`);
+  }
+  
+  res.json({ 
+    success: true,
+    remaining: jobIdsList.length
+  });
+});
+
 app.get('/', (req, res) => {
   res.json({ 
     status: 'online',
