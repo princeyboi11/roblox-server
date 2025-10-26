@@ -84,6 +84,9 @@ app.post('/notify', async (req, res) => {
     let brainrotName = 'Unknown';
     let generation = '0M/s';
     let genValue = 0;
+    let serverId = 'Unknown';
+    let players = 'Unknown';
+    let owner = 'Unknown';
     
     // Extract info from Discord embed format
     if (data.embeds && data.embeds[0]) {
@@ -99,15 +102,36 @@ app.post('/notify', async (req, res) => {
         }
       }
       
-      // Try to extract from fields
-      if (embed.fields && brainrotName === 'Unknown') {
-        const brainrotField = embed.fields.find(f => f.name && f.name.includes('Brainrot'));
-        if (brainrotField && brainrotField.value) {
-          const fieldMatch = brainrotField.value.match(/\*\*(.*?)\*\*\s+\[`\$?([\d.]+[MB]\/s)`\]/i);
-          if (fieldMatch) {
-            brainrotName = fieldMatch[1].trim();
-            generation = fieldMatch[2];
-            genValue = extractGeneration(generation);
+      // Extract from fields
+      if (embed.fields) {
+        // Server ID
+        const serverField = embed.fields.find(f => f.name && f.name.includes('Server ID'));
+        if (serverField && serverField.value) {
+          serverId = serverField.value.replace(/```/g, '').trim();
+        }
+        
+        // Players
+        const playersField = embed.fields.find(f => f.name && f.name.includes('Players'));
+        if (playersField && playersField.value) {
+          players = playersField.value.replace(/```/g, '').trim();
+        }
+        
+        // Owner
+        const ownerField = embed.fields.find(f => f.name && f.name.includes('Base Owner'));
+        if (ownerField && ownerField.value) {
+          owner = ownerField.value.replace(/```/g, '').trim();
+        }
+        
+        // Try to extract brainrot from fields if not found in title
+        if (brainrotName === 'Unknown') {
+          const brainrotField = embed.fields.find(f => f.name && f.name.includes('Brainrot'));
+          if (brainrotField && brainrotField.value) {
+            const fieldMatch = brainrotField.value.match(/\*\*(.*?)\*\*\s+\[`\$?([\d.]+[MB]\/s)`\]/i);
+            if (fieldMatch) {
+              brainrotName = fieldMatch[1].trim();
+              generation = fieldMatch[2];
+              genValue = extractGeneration(generation);
+            }
           }
         }
       }
@@ -118,6 +142,9 @@ app.post('/notify', async (req, res) => {
       brainrot: brainrotName,
       generation: generation,
       genValue: genValue,
+      serverId: serverId,
+      players: players,
+      owner: owner,
       timestamp: new Date().toISOString(),
       fullData: data
     };
@@ -129,7 +156,7 @@ app.post('/notify', async (req, res) => {
       notificationLogs = notificationLogs.slice(0, 100);
     }
     
-    console.log(`📝 Logged: ${brainrotName} [${generation}] (${genValue}M equivalent)`);
+    console.log(`📝 Logged: ${brainrotName} [${generation}] (${genValue}M) | Server: ${serverId} | Players: ${players}`);
     
     // Respond immediately to Roblox
     res.json({ 
@@ -148,12 +175,16 @@ app.post('/notify', async (req, res) => {
           await axios.post(webhookUrl, data, {
             headers: { 'Content-Type': 'application/json' }
           });
-          console.log(`✅ Forwarded to Discord: ${brainrotName} [${generation}]`);
+          console.log(`✅ Forwarded to Discord: ${brainrotName} [${generation}] to webhook`);
         } else {
           console.log(`⏭️  Skipped Discord (gen too low): ${brainrotName} [${generation}]`);
         }
       } catch (error) {
         console.error('❌ Error forwarding to Discord:', error.message);
+        if (error.response) {
+          console.error('Response data:', error.response.data);
+          console.error('Response status:', error.response.status);
+        }
       }
     }, 10000); // 10 second delay
     
@@ -231,9 +262,18 @@ app.get('/logs', (req, res) => {
       color: #f0b429;
       font-size: 18px;
     }
+    .info {
+      color: #8b949e;
+      font-size: 13px;
+      margin-bottom: 3px;
+    }
+    .info strong {
+      color: #c9d1d9;
+    }
     .timestamp {
       color: #8b949e;
       font-size: 12px;
+      margin-top: 5px;
     }
     .empty {
       text-align: center;
@@ -257,6 +297,9 @@ app.get('/logs', (req, res) => {
       <div class="log-entry ${isBillions ? 'billions' : ''}">
         <div class="brainrot">${log.brainrot} ${isBillions ? '🌟' : ''}</div>
         <div class="generation">💰 ${log.generation}</div>
+        <div class="info">👤 <strong>Owner:</strong> ${log.owner || 'Unknown'}</div>
+        <div class="info">🆔 <strong>Server:</strong> ${log.serverId || 'Unknown'}</div>
+        <div class="info">👥 <strong>Players:</strong> ${log.players || 'Unknown'}</div>
         <div class="timestamp">⏰ ${new Date(log.timestamp).toLocaleString()}</div>
       </div>
     `}).join('')}
@@ -274,6 +317,9 @@ app.get('/logs/json', (req, res) => {
     logs: notificationLogs.slice(0, limit).map(log => ({
       brainrot: log.brainrot,
       generation: log.generation,
+      serverId: log.serverId,
+      players: log.players,
+      owner: log.owner,
       timestamp: log.timestamp
     }))
   });
