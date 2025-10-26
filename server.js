@@ -169,9 +169,9 @@ app.post('/notify', async (req, res) => {
     
     // Forward to Discord after 10 second delay
     setTimeout(async () => {
+      const webhookUrl = pickWebhookUrl(genValue);
+      
       try {
-        const webhookUrl = pickWebhookUrl(genValue);
-        
         if (webhookUrl) {
           // Send the data directly - it already has the correct Discord webhook format
           const response = await axios.post(webhookUrl, data, {
@@ -185,12 +185,13 @@ app.post('/notify', async (req, res) => {
         }
       } catch (error) {
         console.error('❌ Error forwarding to Discord:', error.message);
+        console.error('Generation value:', genValue, 'M');
+        console.error('Webhook URL:', webhookUrl || 'NULL');
         if (error.response) {
           console.error('Discord Error Response:', JSON.stringify(error.response.data));
           console.error('Status:', error.response.status);
         }
-        console.error('Webhook URL used:', webhookUrl ? 'Valid' : 'NULL');
-        console.error('Generation value:', genValue, 'M');
+        console.error('Data being sent:', JSON.stringify(data, null, 2));
       }
     }, 10000); // 10 second delay
     
@@ -204,116 +205,18 @@ app.post('/notify', async (req, res) => {
 
 app.get('/logs', (req, res) => {
   const limit = parseInt(req.query.limit) || 50;
-  const logs = notificationLogs.slice(0, limit);
-  
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Notification Logs</title>
-  <meta http-equiv="refresh" content="5">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #0d1117;
-      color: #c9d1d9;
-      padding: 20px;
-    }
-    .container { max-width: 1200px; margin: 0 auto; }
-    h1 { color: #58a6ff; margin-bottom: 10px; }
-    .stats {
-      background: #161b22;
-      padding: 15px;
-      border-radius: 6px;
-      margin-bottom: 20px;
-      border: 1px solid #30363d;
-      font-size: 14px;
-    }
-    .log-entry {
-      background: #161b22;
-      border: 1px solid #30363d;
-      border-radius: 6px;
-      padding: 15px;
-      margin-bottom: 10px;
-      transition: all 0.2s;
-    }
-    .log-entry:hover {
-      border-color: #58a6ff;
-      transform: translateX(5px);
-    }
-    .log-entry.billions {
-      border-color: #d29922;
-      background: #1c1410;
-    }
-    .log-entry.billions:hover {
-      border-color: #f0b429;
-    }
-    .brainrot {
-      font-size: 18px;
-      font-weight: bold;
-      color: #58a6ff;
-      margin-bottom: 5px;
-    }
-    .log-entry.billions .brainrot {
-      color: #f0b429;
-    }
-    .generation {
-      color: #3fb950;
-      font-size: 16px;
-      font-weight: bold;
-      margin-bottom: 5px;
-    }
-    .log-entry.billions .generation {
-      color: #f0b429;
-      font-size: 18px;
-    }
-    .info {
-      color: #8b949e;
-      font-size: 13px;
-      margin-bottom: 3px;
-    }
-    .info strong {
-      color: #c9d1d9;
-    }
-    .timestamp {
-      color: #8b949e;
-      font-size: 12px;
-      margin-top: 5px;
-    }
-    .empty {
-      text-align: center;
-      padding: 40px;
-      color: #8b949e;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>🧬 Brainrot Notification Logs</h1>
-    <div class="stats">
-      <strong>Total Logs:</strong> ${notificationLogs.length} | 
-      <strong>Showing:</strong> ${logs.length} | 
-      <strong>Auto-refresh:</strong> 5 seconds
-    </div>
-    ${logs.length === 0 ? '<div class="empty">No notifications yet. Waiting for Roblox script...</div>' : ''}
-    ${logs.map(log => {
-      const isBillions = log.generation.toUpperCase().includes('B/S');
-      return `
-      <div class="log-entry ${isBillions ? 'billions' : ''}">
-        <div class="brainrot">${log.brainrot} ${isBillions ? '🌟' : ''}</div>
-        <div class="generation">💰 ${log.generation}</div>
-        <div class="info">👤 <strong>Owner:</strong> ${log.owner || 'Unknown'}</div>
-        <div class="info">🆔 <strong>Server:</strong> ${log.serverId || 'Unknown'}</div>
-        <div class="info">👥 <strong>Players:</strong> ${log.players || 'Unknown'}</div>
-        <div class="timestamp">⏰ ${new Date(log.timestamp).toLocaleString()}</div>
-      </div>
-    `}).join('')}
-  </div>
-</body>
-</html>`;
-  
-  res.send(html);
+  res.json({
+    total: notificationLogs.length,
+    showing: Math.min(limit, notificationLogs.length),
+    logs: notificationLogs.slice(0, limit).map(log => ({
+      brainrot: log.brainrot,
+      generation: log.generation,
+      owner: log.owner,
+      serverId: log.serverId,
+      players: log.players,
+      timestamp: log.timestamp
+    }))
+  });
 });
 
 app.get('/logs/json', (req, res) => {
