@@ -173,8 +173,37 @@ app.post('/notify', async (req, res) => {
       
       try {
         if (webhookUrl) {
-          // Send the data directly - it already has the correct Discord webhook format
-          const response = await axios.post(webhookUrl, data, {
+          // Clean up the embed data for Discord
+          const cleanedData = JSON.parse(JSON.stringify(data));
+          
+          if (cleanedData.embeds && cleanedData.embeds[0]) {
+            const embed = cleanedData.embeds[0];
+            
+            // Fix thumbnail - remove if invalid
+            if (embed.thumbnail) {
+              if (Array.isArray(embed.thumbnail) || 
+                  !embed.thumbnail.url || 
+                  embed.thumbnail.url === null || 
+                  embed.thumbnail.url === '' ||
+                  typeof embed.thumbnail.url !== 'string') {
+                delete embed.thumbnail;
+              }
+            }
+            
+            // Fix image - remove if invalid
+            if (embed.image) {
+              if (Array.isArray(embed.image) || 
+                  !embed.image.url || 
+                  embed.image.url === null || 
+                  embed.image.url === '' ||
+                  typeof embed.image.url !== 'string') {
+                delete embed.image;
+              }
+            }
+          }
+          
+          // Send the cleaned data
+          const response = await axios.post(webhookUrl, cleanedData, {
             headers: { 
               'Content-Type': 'application/json'
             }
