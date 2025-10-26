@@ -157,6 +157,7 @@ app.post('/notify', async (req, res) => {
     }
     
     console.log(`📝 Logged: ${brainrotName} [${generation}] (${genValue}M) | Server: ${serverId} | Players: ${players}`);
+    console.log(`🎯 Will forward to Discord in 10s | Gen: ${genValue}M | Webhook: ${pickWebhookUrl(genValue) ? 'Selected' : 'SKIPPED (too low)'}`);
     
     // Respond immediately to Roblox
     res.json({ 
@@ -172,19 +173,24 @@ app.post('/notify', async (req, res) => {
         const webhookUrl = pickWebhookUrl(genValue);
         
         if (webhookUrl) {
-          await axios.post(webhookUrl, data, {
-            headers: { 'Content-Type': 'application/json' }
+          // Send the data directly - it already has the correct Discord webhook format
+          const response = await axios.post(webhookUrl, data, {
+            headers: { 
+              'Content-Type': 'application/json'
+            }
           });
-          console.log(`✅ Forwarded to Discord: ${brainrotName} [${generation}] to webhook`);
+          console.log(`✅ Forwarded to Discord: ${brainrotName} [${generation}] | Status: ${response.status}`);
         } else {
-          console.log(`⏭️  Skipped Discord (gen too low): ${brainrotName} [${generation}]`);
+          console.log(`⏭️  Skipped Discord (gen too low: ${genValue}M): ${brainrotName} [${generation}]`);
         }
       } catch (error) {
         console.error('❌ Error forwarding to Discord:', error.message);
         if (error.response) {
-          console.error('Response data:', error.response.data);
-          console.error('Response status:', error.response.status);
+          console.error('Discord Error Response:', JSON.stringify(error.response.data));
+          console.error('Status:', error.response.status);
         }
+        console.error('Webhook URL used:', webhookUrl ? 'Valid' : 'NULL');
+        console.error('Generation value:', genValue, 'M');
       }
     }, 10000); // 10 second delay
     
